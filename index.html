@@ -52,11 +52,13 @@
   /* ===== DEMO MODE ===== */
   #demo-fab { position:fixed; bottom:24px; right:24px; z-index:900; }
   #demo-panel { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:901; width:680px; max-width:calc(100vw - 32px); }
-  .demo-toast { position:fixed; top:72px; right:16px; z-index:950; max-width:340px; animation:toastIn .4s cubic-bezier(.34,1.56,.64,1); }
+  #demo-toasts { position:fixed; top:72px; right:16px; z-index:952; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  .demo-toast { position:relative; z-index:auto; max-width:340px; animation:toastIn .4s cubic-bezier(.34,1.56,.64,1); }
   @keyframes toastIn { from{opacity:0;transform:translateX(60px)} to{opacity:1;transform:translateX(0)} }
   .demo-toast.removing { animation:toastOut .3s ease-in forwards; }
-  @keyframes toastOut { to{opacity:0;transform:translateX(60px)} }
-  .spotlight-ring { position:fixed; border-radius:16px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); z-index:899; pointer-events:none; transition:all .5s cubic-bezier(.4,0,.2,1); }
+  @keyframes toastOut { to{opacity:0;transform:translateX(60px);opacity:0} }
+  .spotlight-ring { position:fixed; border-radius:16px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); z-index:898; pointer-events:none; transition:all .35s cubic-bezier(.4,0,.2,1); }
+  .demo-target-elevated { position:relative !important; z-index:900 !important; box-shadow:0 0 0 4px rgba(59,130,246,.18), 0 16px 40px rgba(15,23,42,.22); border-radius:16px; }
   .demo-step-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; transition:all .3s; }
   .demo-step-dot.done { background:#10b981; }
   .demo-step-dot.active { background:#3b82f6; box-shadow:0 0 0 4px rgba(59,130,246,.3); }
@@ -660,7 +662,7 @@
       </div>
       <span class="text-white/70 text-xs font-mono flex-1 text-center">デモモード — 商業施設 一斉解約シミュレーション</span>
       <div class="flex items-center gap-2">
-        <button id="demo-auto-btn" onclick="demoToggleAuto()" class="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition-colors">⏸ 自動再生</button>
+        <button id="demo-auto-btn" onclick="demoToggleAuto()" class="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 transition-colors">▶ 自動再生</button>
         <button onclick="demoStop()" class="text-white/50 hover:text-white/80 text-xs transition-colors">✕ 終了</button>
       </div>
     </div>
@@ -689,7 +691,7 @@
 <div id="spotlight-ring" class="spotlight-ring hidden"></div>
 
 <!-- ===== DEMO TOASTS container ===== -->
-<div id="demo-toasts" class="fixed top-16 right-4 z-50 space-y-2 pointer-events-none"></div>
+<div id="demo-toasts"></div>
 
 <!-- Alert Modal -->
 <div id="alert-modal" class="modal-overlay hidden">
@@ -699,33 +701,109 @@
 </div>
 
 <script>
+
 // =================== DATA ===================
-const properties = [
-  { id:1, name:'ヤマダ電機 名古屋北店', type:'ロードサイド', tenant:'ヤマダ電機', rent:1.2, status:'緊急', days:60, area:'名古屋市北区', sqm:2400, image:'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=70' },
-  { id:2, name:'マツモトキヨシ 仙台店', type:'商業施設', tenant:'マツモトキヨシ', rent:0.85, status:'注意', days:90, area:'仙台市青葉区', sqm:850, image:'https://images.unsplash.com/photo-1577427648069-cf0db8f38a24?w=400&q=70' },
-  { id:3, name:'バロー 岐阜南モール', type:'複合SC', tenant:'バロー', rent:2.1, status:'注意', days:120, area:'岐阜市南区', sqm:5200, image:'https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=400&q=70' },
-  { id:4, name:'ニトリ 福岡東SC', type:'商業施設', tenant:'ニトリ', rent:1.8, status:'正常', days:480, area:'福岡市東区', sqm:3600, image:'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=70' },
-  { id:5, name:'マックスバリュ 札幌北店', type:'ロードサイド', tenant:'マックスバリュ', rent:0.95, status:'正常', days:380, area:'札幌市北区', sqm:1800, image:'https://images.unsplash.com/photo-1542601906897-5de18490b0b3?w=400&q=70' },
-  { id:6, name:'ドン・キホーテ 大阪南', type:'複合SC', tenant:'ドン・キホーテ', rent:2.4, status:'正常', days:620, area:'大阪市南区', sqm:4100, image:'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?w=400&q=70' },
+const propertyImagePool = [
+  'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&q=70',
+  'https://images.unsplash.com/photo-1577427648069-cf0db8f38a24?w=400&q=70',
+  'https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=400&q=70',
+  'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=70',
+  'https://images.unsplash.com/photo-1542601906897-5de18490b0b3?w=400&q=70',
+  'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?w=400&q=70',
+  'https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=400&q=70',
+  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400&q=70'
 ];
 
-const alertsData = [
-  { prop:'ヤマダ電機 名古屋北店', tenant:'ヤマダ電機', type:'中途解約', days:60, rent:'¥1.20M', status:'緊急', assigned:'田中 誠' },
-  { prop:'マツモトキヨシ 仙台店', tenant:'マツモトキヨシ', type:'契約満了', days:90, rent:'¥0.85M', status:'注意', assigned:'鈴木 花子' },
-  { prop:'バロー 岐阜南モール', tenant:'バロー', type:'賃料改定', days:120, rent:'¥2.10M', status:'注意', assigned:'佐藤 一郎' },
-  { prop:'ニトリ 福岡東SC', tenant:'ニトリ', type:'契約満了', days:210, rent:'¥1.80M', status:'把握', assigned:'田中 誠' },
-  { prop:'マックスバリュ 札幌北店', tenant:'マックスバリュ', type:'賃料改定', days:280, rent:'¥0.95M', status:'把握', assigned:'未割当' },
-  { prop:'ドン・キホーテ 大阪南', tenant:'ドン・キホーテ', type:'契約更新', days:420, rent:'¥2.40M', status:'把握', assigned:'山田 次郎' },
+const seededProperties = [
+  { id:1, name:'ヤマダ電機 名古屋北店', type:'ロードサイド', tenant:'ヤマダ電機', rent:1.20, status:'緊急', days:60, area:'名古屋市北区', sqm:2400, image:propertyImagePool[0], occupancy:0, owner:'中部アセット', nextAction:'後継候補選定', salesTrend:'前年同月比 -11%', risk:'中途解約', region:'中部' },
+  { id:2, name:'マツモトキヨシ 仙台店', type:'商業施設', tenant:'マツモトキヨシ', rent:0.85, status:'注意', days:90, area:'仙台市青葉区', sqm:850, image:propertyImagePool[1], occupancy:1, owner:'東北都市開発', nextAction:'更新交渉', salesTrend:'前年同月比 +5%', risk:'契約満了', region:'東北' },
+  { id:3, name:'バロー 岐阜南モール', type:'複合SC', tenant:'バロー', rent:2.10, status:'注意', days:120, area:'岐阜市南区', sqm:5200, image:propertyImagePool[2], occupancy:1, owner:'岐阜SCマネジメント', nextAction:'賃料改定交渉', salesTrend:'前年同月比 +2%', risk:'賃料改定', region:'中部' },
+  { id:4, name:'ニトリ 福岡東SC', type:'商業施設', tenant:'ニトリ', rent:1.80, status:'把握', days:210, area:'福岡市東区', sqm:3600, image:propertyImagePool[3], occupancy:1, owner:'九州リテール投資法人', nextAction:'更新準備', salesTrend:'前年同月比 +3%', risk:'契約満了', region:'九州' },
+  { id:5, name:'マックスバリュ 札幌北店', type:'ロードサイド', tenant:'マックスバリュ', rent:0.95, status:'把握', days:180, area:'札幌市北区', sqm:1800, image:propertyImagePool[4], occupancy:1, owner:'北日本プロパティ', nextAction:'減額交渉対策', salesTrend:'前年同月比 -1%', risk:'賃料改定要求', region:'北海道' },
+  { id:6, name:'ドン・キホーテ 大阪南', type:'複合SC', tenant:'ドン・キホーテ', rent:2.40, status:'緊急', days:30, area:'大阪市浪速区', sqm:4100, image:propertyImagePool[5], occupancy:1, owner:'関西アセット', nextAction:'緊急後継誘致', salesTrend:'前年同月比 -6%', risk:'中途解約', region:'関西' },
+  { id:7, name:'イオンタウン 千葉中央', type:'商業施設', tenant:'イオンスタイル', rent:2.65, status:'正常', days:540, area:'千葉市中央区', sqm:5800, image:propertyImagePool[6], occupancy:1, owner:'首都圏SC運営', nextAction:'定例レビュー', salesTrend:'前年同月比 +4%', risk:'通常監視', region:'関東' },
+  { id:8, name:'コメダ珈琲 広島駅前', type:'ロードサイド', tenant:'コメダ珈琲', rent:0.62, status:'正常', days:420, area:'広島市南区', sqm:420, image:propertyImagePool[7], occupancy:1, owner:'中国都市再生', nextAction:'定例レビュー', salesTrend:'前年同月比 +7%', risk:'通常監視', region:'中国' },
+  { id:9, name:'ウエルシア 横浜港北', type:'ロードサイド', tenant:'ウエルシア', rent:1.05, status:'注意', days:75, area:'横浜市都筑区', sqm:980, image:propertyImagePool[1], occupancy:1, owner:'神奈川プロパティ', nextAction:'更新交渉', salesTrend:'前年同月比 +2%', risk:'契約満了', region:'関東' },
+  { id:10, name:'無印良品 京都四条', type:'商業施設', tenant:'無印良品', rent:1.55, status:'把握', days:240, area:'京都市下京区', sqm:1500, image:propertyImagePool[3], occupancy:1, owner:'京都商業開発', nextAction:'売上レビュー', salesTrend:'前年同月比 +1%', risk:'契約満了', region:'関西' },
+  { id:11, name:'サンドラッグ 熊本南', type:'ロードサイド', tenant:'サンドラッグ', rent:0.74, status:'正常', days:390, area:'熊本市南区', sqm:730, image:propertyImagePool[4], occupancy:1, owner:'九州都市マネジメント', nextAction:'定例レビュー', salesTrend:'前年同月比 +6%', risk:'通常監視', region:'九州' },
+  { id:12, name:'TSUTAYA 高松レインボー', type:'複合SC', tenant:'TSUTAYA', rent:0.96, status:'注意', days:105, area:'高松市多肥下町', sqm:1300, image:propertyImagePool[5], occupancy:1, owner:'四国SC管理', nextAction:'用途転換検討', salesTrend:'前年同月比 -8%', risk:'賃料改定', region:'四国' }
 ];
+
+const propertySeeds = [
+  ['カインズ','ロードサイド'],['ケーズデンキ','ロードサイド'],['スギ薬局','ロードサイド'],['ロピア','複合SC'],
+  ['ユニクロ','商業施設'],['しまむら','ロードサイド'],['ABCマート','商業施設'],['西松屋','ロードサイド'],
+  ['セリア','商業施設'],['ダイソー','複合SC'],['ケンタッキー','ロードサイド'],['スターバックス','ロードサイド'],
+  ['業務スーパー','複合SC'],['コーナン','ロードサイド'],['エディオン','商業施設'],['サイゼリヤ','商業施設']
+];
+const citySeeds = [
+  ['川崎市高津区','関東'],['船橋市本町','関東'],['水戸市元吉田町','関東'],['宇都宮市簗瀬町','関東'],
+  ['新潟市中央区','中部'],['金沢市駅西本町','中部'],['浜松市中区','中部'],['静岡市駿河区','中部'],
+  ['神戸市西区','関西'],['姫路市飾磨区','関西'],['奈良市柏木町','関西'],['和歌山市北中島','関西'],
+  ['岡山市北区','中国'],['倉敷市白楽町','中国'],['松江市学園','中国'],['山口市小郡','中国'],
+  ['徳島市沖浜','四国'],['松山市古川北','四国'],['高知市杉井流','四国'],['大分市明野','九州']
+];
+
+function makeGeneratedProperties(startId, total) {
+  const results = [];
+  for (let i = 0; i < total; i++) {
+    const [tenant, type] = propertySeeds[i % propertySeeds.length];
+    const [area, region] = citySeeds[i % citySeeds.length];
+    const isUrgent = i < 3;
+    const isWarning = i >= 3 && i < 15;
+    const risk = isUrgent ? '中途解約' : isWarning ? (i % 2 === 0 ? '契約満了' : '賃料改定') : '通常監視';
+    const status = isUrgent ? '緊急' : isWarning ? '注意' : (i % 6 === 0 ? '把握' : '正常');
+    const days = isUrgent ? 25 + (i * 10) : isWarning ? 70 + (i * 9) : 220 + ((i * 17) % 420);
+    const sqm = 500 + ((i * 137) % 5200);
+    const rent = Number((0.55 + ((i * 0.17) % 2.6)).toFixed(2));
+    const occupancy = status === '緊急' ? 0 : 1;
+    const nextAction = risk === '中途解約' ? '後継候補選定' : risk === '契約満了' ? '更新交渉' : risk === '賃料改定' ? '減額交渉対策' : '定例レビュー';
+    const salesTrend = `前年同月比 ${status==='緊急' ? '-' : '+'}${1 + (i % 12)}%`;
+    results.push({
+      id: startId + i,
+      name: `${tenant} ${area.replace('市','').replace('区','')}店`,
+      type,
+      tenant,
+      rent,
+      status,
+      days,
+      area,
+      sqm,
+      image: propertyImagePool[i % propertyImagePool.length],
+      occupancy,
+      owner: `${region}商業アセット`,
+      nextAction,
+      salesTrend,
+      risk,
+      region
+    });
+  }
+  return results;
+}
+
+const properties = [...seededProperties, ...makeGeneratedProperties(13, 118)].slice(0,130);
+
+const alertsData = properties
+  .filter(p => ['緊急','注意','把握'].includes(p.status))
+  .sort((a,b) => a.days - b.days)
+  .slice(0, 24)
+  .map((p, idx) => ({
+    prop: p.name,
+    tenant: p.tenant,
+    type: p.risk === '通常監視' ? '契約更新' : p.risk,
+    days: p.days,
+    rent: `¥${p.rent.toFixed(2)}M`,
+    status: p.status,
+    assigned: ['田中 誠','鈴木 花子','佐藤 一郎','山田 次郎','未割当'][idx % 5]
+  }));
 
 const modalData = [
   {
     title:'ヤマダ電機 名古屋北店 — 中途解約通知',
-    img:'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=75',
+    img:propertyImagePool[0],
     status:'緊急',
     detail: `
       <div class="flex gap-4 mb-4">
-        <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=75" class="w-40 h-28 object-cover rounded-xl shrink-0">
+        <img src="${propertyImagePool[0]}" class="w-40 h-28 object-cover rounded-xl shrink-0">
         <div class="space-y-1 text-sm">
           <div><span class="text-gray-400">所在地：</span>名古屋市北区 黒川2-1</div>
           <div><span class="text-gray-400">延床面積：</span>2,400㎡</div>
@@ -734,67 +812,74 @@ const modalData = [
           <div><span class="text-gray-400">担当者：</span>田中 誠</div>
         </div>
       </div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="rounded-xl bg-gray-50 p-3"><div class="text-xs text-gray-400">商圏人口</div><div class="font-bold text-gray-900">6.8万人</div></div>
+        <div class="rounded-xl bg-gray-50 p-3"><div class="text-xs text-gray-400">競合量販店</div><div class="font-bold text-gray-900">半径2kmで3店</div></div>
+        <div class="rounded-xl bg-gray-50 p-3"><div class="text-xs text-gray-400">想定空室損失</div><div class="font-bold text-red-600">¥3.6M / 3ヶ月</div></div>
+      </div>
       <div class="bg-red-50 rounded-xl p-4 mb-4 border border-red-100">
         <div class="text-sm font-semibold text-red-700 mb-1">⚠ 影響試算</div>
-        <div class="text-sm text-red-600">空室期間3ヶ月の場合、賃料ロス約 ¥3.6M。早期後継誘致で損失を最小化が必要。</div>
+        <div class="text-sm text-red-600">後継テナント打診を45日以内に開始できれば、空室日数を平均38日短縮できる見込みです。</div>
       </div>
       <div class="text-sm font-semibold text-gray-900 mb-2">AI推奨アクション（自動生成）</div>
       <ol class="text-sm text-gray-700 space-y-1.5 list-decimal list-inside">
-        <li>後継候補テナント 3社リストアップ（ドン・キホーテ、コストコ系小型店、ウェルシア）</li>
+        <li>後継候補テナント 3社リストアップ（ドン・キホーテ、ウェルシア、ロピア）</li>
         <li>現商圏半径2km内の競合調査レポート作成</li>
         <li>賃料・条件の比較表を稟議資料として自動生成</li>
         <li>土地所有者への中間報告メール下書き生成</li>
-      </ol>`,
+      </ol>`
   },
   {
     title:'マツモトキヨシ 仙台店 — 契約満了90日前',
-    img:'https://images.unsplash.com/photo-1577427648069-cf0db8f38a24?w=600&q=75',
+    img:propertyImagePool[1],
     status:'注意',
-    detail:`
+    detail: `
       <div class="flex gap-4 mb-4">
-        <img src="https://images.unsplash.com/photo-1577427648069-cf0db8f38a24?w=600&q=75" class="w-40 h-28 object-cover rounded-xl shrink-0">
+        <img src="${propertyImagePool[1]}" class="w-40 h-28 object-cover rounded-xl shrink-0">
         <div class="space-y-1 text-sm">
           <div><span class="text-gray-400">所在地：</span>仙台市青葉区 一番町3-2</div>
           <div><span class="text-gray-400">延床面積：</span>850㎡</div>
           <div><span class="text-gray-400">月額賃料：</span>¥850,000</div>
           <div><span class="text-gray-400">満了予定：</span>90日後（2026年7月12日）</div>
+          <div><span class="text-gray-400">売上推移：</span>前年同月比 +5%</div>
         </div>
       </div>
       <div class="bg-amber-50 rounded-xl p-4 mb-4 border border-amber-100">
         <div class="text-sm font-semibold text-amber-700 mb-1">📊 商圏・競合分析サマリ</div>
-        <div class="text-sm text-amber-700">徒歩圏内の競合ドラッグストア数：2件。売上は安定推移。更新 + 賃料5%増が最優先シナリオ。</div>
+        <div class="text-sm text-amber-700">徒歩圏内の競合ドラッグストア数は2店。路線価上昇と売上安定から、更新＋賃料5%増が最有力です。</div>
       </div>
       <div class="text-sm font-semibold text-gray-900 mb-2">AI推奨アクション</div>
       <ol class="text-sm text-gray-700 space-y-1.5 list-decimal list-inside">
         <li>賃料改定提案書（¥892,500/月）を自動作成</li>
         <li>更新合意書ドラフト生成</li>
         <li>競合チェックレポート提出</li>
-      </ol>`,
+      </ol>`
   },
   {
     title:'バロー 岐阜南モール — 賃料改定交渉',
-    img:'https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=600&q=75',
+    img:propertyImagePool[2],
     status:'注意',
-    detail:`
+    detail: `
       <div class="flex gap-4 mb-4">
-        <img src="https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=600&q=75" class="w-40 h-28 object-cover rounded-xl shrink-0">
+        <img src="${propertyImagePool[2]}" class="w-40 h-28 object-cover rounded-xl shrink-0">
         <div class="space-y-1 text-sm">
           <div><span class="text-gray-400">所在地：</span>岐阜市南区 柳津3-5</div>
           <div><span class="text-gray-400">延床面積：</span>5,200㎡</div>
           <div><span class="text-gray-400">現月額賃料：</span>¥2,100,000</div>
           <div><span class="text-gray-400">交渉目標：</span>¥2,200,000〜¥2,300,000</div>
+          <div><span class="text-gray-400">競合SC：</span>半径5kmで4施設</div>
         </div>
       </div>
       <div class="bg-blue-50 rounded-xl p-4 mb-4 border border-blue-100">
         <div class="text-sm font-semibold text-blue-700 mb-1">💡 AIアドバイス</div>
-        <div class="text-sm text-blue-700">近隣路線価は前年比 +3.2%。競合SCとの賃料水準比較から、5〜10%増の交渉余地あり。</div>
+        <div class="text-sm text-blue-700">近隣路線価は前年比 +3.2%。商圏滞留時間と競合賃料から、5〜10%増の交渉余地があります。</div>
       </div>
       <div class="text-sm font-semibold text-gray-900 mb-2">AI推奨アクション</div>
       <ol class="text-sm text-gray-700 space-y-1.5 list-decimal list-inside">
         <li>路線価・競合賃料データを添付した交渉資料作成</li>
         <li>段階的賃料改定プランを3案提示</li>
         <li>担当者向け交渉スクリプト生成</li>
-      </ol>`,
+      </ol>`
   }
 ];
 
@@ -805,8 +890,8 @@ const scenarios = [
     tag:'推奨', tagClass:'badge-blue',
     revenue:'¥1.35M〜1.5M/月', vacancy:'1.5〜2ヶ月', score:92,
     desc:'現商圏・競合状況・規模から最適テナントを自動提案。空室期間を最小化し収益を早期回復。',
-    candidates:['ドン・キホーテ（優先度1位）','ウェルシア薬局（優先度2位）','コメダ珈琲+小型SCテナント混在型（優先度3位）'],
-    steps:['商圏半径2km競合調査レポート作成','候補テナント3社にアプローチ開始','賃貸条件・平面図資料パッケージ送付','稟議書（比較表付き）を自動生成'],
+    candidates:['ドン・キホーテ（優先度1位）','ウェルシア薬局（優先度2位）','ロピア小型店（優先度3位）'],
+    steps:['商圏半径2km競合調査レポート作成','候補テナント3社にアプローチ開始','賃貸条件・平面図資料パッケージ送付','稟議書（比較表付き）を自動生成']
   },
   {
     no:2, icon:'🔄', title:'更新 / 更地返還 / 改修',
@@ -815,7 +900,7 @@ const scenarios = [
     revenue:'¥0〜1.2M/月（工事期間考慮）', vacancy:'3〜6ヶ月', score:68,
     desc:'更地返還・既存テナントとの再契約・改修後の新規募集を比較。工事費と再募集難易度を見える化。',
     candidates:['現テナントとの賃料5%増更新','更地返還 → 新規テナント公募','リノベーション後の複合テナント化'],
-    steps:['テナントへの更新意向確認書送付','改修見積依頼（3社相見積）','更地返還時の土地評価算出','短期・中長期収益比較シミュレーション'],
+    steps:['テナントへの更新意向確認書送付','改修見積依頼（3社相見積）','更地返還時の土地評価算出','短期・中長期収益比較シミュレーション']
   },
   {
     no:3, icon:'💰', title:'建物売却 / 資産処分',
@@ -824,8 +909,8 @@ const scenarios = [
     revenue:'¥3.2億（一時収入）', vacancy:'売却後ゼロ', score:55,
     desc:'建物を現在価値で再査定し土地所有者・テナント・第三者への売却候補を比較。ESG認証込みで価値最大化。',
     candidates:['土地所有者への売却（簿価+20%想定）','第三者不動産法人への売却','サーキュラーエコノミー認証取得後売却'],
-    steps:['建物現況調査・現在価値査定','ESG/サーキュラーエコノミー認証申請','売却候補先3社にNDA付き打診','売却比較表・稟議論点整理'],
-  },
+    steps:['建物現況調査・現在価値査定','ESG/サーキュラーエコノミー認証申請','売却候補先3社にNDA付き打診','売却比較表・稟議論点整理']
+  }
 ];
 
 const todos = [
@@ -833,7 +918,7 @@ const todos = [
   { text:'後継候補テナント3社リストアップ', done:false, priority:'高' },
   { text:'賃貸条件・平面図資料パッケージ作成', done:true, priority:'中' },
   { text:'稟議書（シナリオ比較表付き）を自動生成', done:false, priority:'高' },
-  { text:'土地所有者への中間報告メール送付', done:false, priority:'中' },
+  { text:'土地所有者への中間報告メール送付', done:false, priority:'中' }
 ];
 
 const tasks = {
@@ -841,12 +926,12 @@ const tasks = {
     { title:'名古屋北店 後継テナント稟議書作成', tag:'稟議', tagClass:'badge-red', prop:'ヤマダ電機 名古屋北店', due:'2026/05/01', assign:'田中 誠' },
     { title:'仙台店 賃料改定提案書', tag:'交渉', tagClass:'badge-yellow', prop:'マツモトキヨシ 仙台店', due:'2026/05/10', assign:'鈴木 花子' },
     { title:'岐阜南 路線価データ収集', tag:'調査', tagClass:'badge-blue', prop:'バロー 岐阜南モール', due:'2026/05/15', assign:'未割当' },
-    { title:'福岡東SC 満了前ヒアリング', tag:'調査', tagClass:'badge-blue', prop:'ニトリ 福岡東SC', due:'2026/06/01', assign:'田中 誠' },
+    { title:'福岡東SC 満了前ヒアリング', tag:'調査', tagClass:'badge-blue', prop:'ニトリ 福岡東SC', due:'2026/06/01', assign:'田中 誠' }
   ],
   inprogress:[
     { title:'名古屋北店 商圏調査レポート', tag:'調査', tagClass:'badge-blue', prop:'ヤマダ電機 名古屋北店', due:'2026/04/20', assign:'田中 誠' },
     { title:'仙台店 テナント意向確認', tag:'交渉', tagClass:'badge-yellow', prop:'マツモトキヨシ 仙台店', due:'2026/04/18', assign:'鈴木 花子' },
-    { title:'岐阜南 競合賃料調査', tag:'調査', tagClass:'badge-blue', prop:'バロー 岐阜南モール', due:'2026/04/22', assign:'佐藤 一郎' },
+    { title:'岐阜南 競合賃料調査', tag:'調査', tagClass:'badge-blue', prop:'バロー 岐阜南モール', due:'2026/04/22', assign:'佐藤 一郎' }
   ],
   done:[
     { title:'名古屋北店 退去通知受領・記録', tag:'記録', tagClass:'badge-green', prop:'ヤマダ電機 名古屋北店', due:'2026/04/10', assign:'田中 誠' },
@@ -854,21 +939,48 @@ const tasks = {
     { title:'オーナーへの第一報', tag:'報告', tagClass:'badge-green', prop:'ヤマダ電機 名古屋北店', due:'2026/04/12', assign:'田中 誠' },
     { title:'物件図面・契約書スキャン', tag:'資料', tagClass:'badge-green', prop:'名古屋北店', due:'2026/04/10', assign:'山田 次郎' },
     { title:'商圏半径設定・データ確認', tag:'調査', tagClass:'badge-green', prop:'名古屋北店', due:'2026/04/11', assign:'田中 誠' },
-    { title:'稟議フロー確認・担当割当', tag:'管理', tagClass:'badge-green', prop:'全案件', due:'2026/04/12', assign:'佐藤 一郎' },
-  ],
+    { title:'稟議フロー確認・担当割当', tag:'管理', tagClass:'badge-green', prop:'全案件', due:'2026/04/12', assign:'佐藤 一郎' }
+  ]
 };
 
-const aiCases = [
-  { id:0, prop:'ヤマダ電機 名古屋北店', type:'中途解約', urgent:true },
-  { id:1, prop:'マツモトキヨシ 仙台店', type:'契約満了', urgent:false },
-  { id:2, prop:'バロー 岐阜南モール', type:'賃料改定', urgent:false },
-];
+const aiCases = alertsData.slice(0,8).map((a, idx) => ({
+  id: idx,
+  prop: a.prop,
+  type: a.type,
+  urgent: a.status === '緊急'
+}));
 
-const aiResponses = {
-  0:`**ヤマダ電機 名古屋北店**の中途解約案件を分析しました。\n\n📊 **商圏分析**\n・半径2km人口：約68,000人（安定）\n・競合ロードサイド店：3件（うち家電量販1件撤退済）\n\n🏪 **後継テナント候補（優先順）**\n1. **ドン・キホーテ** — 商圏適合度92点。月額¥1.35M見込み\n2. **ウェルシア薬局** — 小型化で対応可。月額¥0.9M\n3. **コメダ珈琲＋雑貨複合** — 分割利用型。合計¥1.1M\n\n⏰ **推奨アクション期限**\n・45日以内にテナント打診完了\n・稟議書は本日中に自動生成可能\n\n稟議書を生成しますか？`,
-  1:`**マツモトキヨシ 仙台店**の契約満了案件を分析しました。\n\n📊 **更新可能性：高（82%）**\n・テナント売上は前年比＋5%\n・競合ドラッグストアは減少傾向\n\n💰 **賃料改定試算**\n・現賃料：¥850,000/月\n・改定提案：¥892,500（＋5%）\n・路線価上昇率：3.2%と整合的\n\n✅ **推奨：賃料5%増での更新**\n\n更新提案書を作成しますか？`,
-  2:`**バロー 岐阜南モール**の賃料改定案件を分析しました。\n\n📊 **近隣路線価**：前年比＋3.2%\n競合SC賃料相場：¥2,200〜2,400/㎡\n\n💡 **改定シナリオ3案**\n1. 一括改定 +5%（¥2,205,000）→ 合意リスク低\n2. 段階改定 +3%→+3%（2年）→ 円満重視\n3. 現状維持＋ESG付加価値提案\n\n**推奨：シナリオ1（+5%一括）**\n交渉スクリプトを生成しますか？`,
-};
+function buildAIResponse(propertyName) {
+  const p = properties.find(pr => pr.name === propertyName) || properties[0];
+  const actionLine = p.risk === '中途解約'
+    ? `1. **後継テナント誘致** — 想定賃料 ¥${(p.rent * 1.12).toFixed(2)}M / 空室 ${Math.max(1, Math.round(p.days / 45))}〜2ヶ月`
+    : p.risk === '契約満了'
+    ? `1. **更新交渉** — 5%改定後 ¥${(p.rent * 1.05).toFixed(2)}M / 更新確度 82%`
+    : `1. **賃料改定交渉** — 3案比較で収益下振れを最小化`;
+  const secondaryLine = p.type === 'ロードサイド'
+    ? '2. **ロードサイド再編** — 薬局・ディスカウント・飲食の複合利用が有力'
+    : '2. **複合テナント化** — 面積分割により賃料総額の回復余地あり';
+  return `**${p.name}** を分析しました。
+
+📊 **案件概要**
+・所在地：${p.area}
+・タイプ：${p.type}
+・面積：${p.sqm.toLocaleString()}㎡
+・現賃料：¥${p.rent.toFixed(2)}M/月
+・リスク：${p.risk}
+
+🏪 **推奨シナリオ**
+${actionLine}
+${secondaryLine}
+
+🧭 **次アクション**
+・担当：${alertsData.find(a => a.prop === p.name)?.assigned || '田中 誠'}
+・優先タスク：${p.nextAction}
+・補足：${p.salesTrend}
+
+資料生成に進めますか？`;
+}
+
 
 // =================== UI FUNCTIONS ===================
 let selectedCase = null;
@@ -910,9 +1022,12 @@ function renderProperties(list){
 function filterProps(type, btn){
   document.querySelectorAll('#page-properties .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  const map = {all:properties,alert:properties.filter(p=>p.status!=='正常'),
-    commercial:properties.filter(p=>p.type==='商業施設'),
-    roadside:properties.filter(p=>p.type==='ロードサイド')};
+  const map = {
+    all: properties,
+    alert: properties.filter(p=>p.status!=='正常'),
+    commercial: properties.filter(p=>['商業施設','複合SC'].includes(p.type)),
+    roadside: properties.filter(p=>p.type==='ロードサイド')
+  };
   renderProperties(map[type]||properties);
 }
 
@@ -920,7 +1035,7 @@ function filterProps(type, btn){
 function renderAlerts(){
   const badge = {緊急:'badge-red',注意:'badge-yellow',把握:'badge-blue'};
   document.getElementById('alerts-table').innerHTML = alertsData.map((a,i)=>`
-    <tr class="hover:bg-gray-50 cursor-pointer" onclick="${i<3?`openAlertModal(${i})`:``}">
+    <tr class="hover:bg-gray-50 cursor-pointer" onclick="${i<3?`openAlertModal(${i})`:`showPage('ai-agent',document.querySelectorAll('.sidebar-link')[3]);selectCase(${Math.min(i, aiCases.length - 1)})`}">
       <td class="py-3"><div class="w-2 h-2 rounded-full ${a.status==='緊急'?'bg-red-500':a.status==='注意'?'bg-amber-400':'bg-blue-400'}"></div></td>
       <td class="py-3 font-medium text-sm">${a.prop}</td>
       <td class="py-3 text-sm text-gray-600">${a.tenant}</td>
@@ -930,6 +1045,8 @@ function renderAlerts(){
       <td class="py-3"><span class="${badge[a.status]}">${a.status}</span></td>
       <td class="py-3"><button class="text-xs text-primary-600 hover:underline font-medium">AI提案 →</button></td>
     </tr>`).join('');
+  const cnt = document.getElementById('alert-badge');
+  if (cnt) cnt.textContent = alertsData.filter(a=>a.status==='緊急').length;
 }
 
 // Alert Modal
@@ -962,7 +1079,7 @@ function renderAICases(){
         <div class="text-sm font-medium truncate">${c.prop}</div>
         <div class="text-xs text-gray-500">${c.type}</div>
       </div>
-      ${c.urgent?'<span class="badge-red shrink-0">緊急</span>':'<span class="badge-yellow shrink-0">注意</span>'}
+      ${c.urgent?'<span class="badge-red shrink-0">緊急</span>':'<span class="badge-yellow shrink-0">要確認</span>'}
     </div>`).join('');
 }
 
@@ -986,7 +1103,15 @@ function selectCase(id){
     </div>`;
 
   const chat = document.getElementById('ai-chat');
-  chat.innerHTML += `
+  chat.innerHTML = `
+    <div class="flex gap-3">
+      <div class="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+        <svg class="w-3.5 h-3.5 text-primary-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2 0V4.07c3.94.49 7 3.85 7 7.93s-3.05 7.44-7 7.93z"/></svg>
+      </div>
+      <div class="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm max-w-sm">
+        案件を読み込みました。最適シナリオを算出しています。
+      </div>
+    </div>
     <div class="flex gap-3 justify-end">
       <div class="bg-primary-600 text-white rounded-2xl rounded-tr-none px-4 py-3 text-sm max-w-xs">
         「${c.prop}」の${c.type}案件について提案を生成してください
@@ -1006,7 +1131,7 @@ function selectCase(id){
     setTimeout(()=>{
       const el = document.getElementById(typingId);
       if(el){
-        const resp = aiResponses[id] || '提案を生成中です…';
+        const resp = buildAIResponse(c.prop);
         el.outerHTML = `
           <div class="flex gap-3">
             <div class="w-7 h-7 bg-primary-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
@@ -1148,12 +1273,41 @@ function renderTasks(){
   document.getElementById('tasks-done').innerHTML = tasks.done.map(renderCard).join('');
 }
 
+
+function clearSpotlightTarget(){
+  document.querySelectorAll('.demo-target-elevated').forEach(el=>el.classList.remove('demo-target-elevated'));
+}
+
+function refreshSummaryUI(){
+  const total = properties.length;
+  const alertCount = properties.filter(p=>p.status!=='正常').length;
+  const urgentCount = properties.filter(p=>p.status==='緊急').length;
+  const totalAnnualRent = properties.reduce((sum,p)=>sum + (p.rent * 12), 0);
+  const occupiedRate = Math.round((properties.filter(p=>p.occupancy !== 0).length / total) * 1000) / 10;
+  const cards = document.querySelectorAll('#page-dashboard .card');
+  if (cards[0]) cards[0].querySelector('.text-2xl').innerHTML = `${occupiedRate}<span class="text-sm font-normal text-gray-500">%</span>`;
+  if (cards[1]) cards[1].querySelector('.text-2xl').textContent = String(urgentCount);
+  if (cards[2]) cards[2].querySelector('.text-2xl').innerHTML = `¥${(totalAnnualRent/100).toFixed(1)}<span class="text-sm font-normal text-gray-500">億</span>`;
+  const heroCount = document.querySelector('.absolute.right-6.top-4.bottom-4 .text-3xl');
+  if (heroCount) heroCount.innerHTML = `${total}<span class="text-lg">施設</span>`;
+  const propTabs = document.querySelectorAll('#page-properties .tab-btn');
+  if (propTabs[0]) propTabs[0].textContent = `すべて (${total})`;
+  if (propTabs[1]) propTabs[1].textContent = `要対応 (${alertCount})`;
+  const alertsSummary = document.querySelectorAll('#page-alerts .card.border-l-4');
+  if (alertsSummary[0]) alertsSummary[0].querySelector('.text-2xl').textContent = String(alertsData.filter(a=>a.status==='緊急').length);
+  if (alertsSummary[1]) alertsSummary[1].querySelector('.text-2xl').textContent = String(alertsData.filter(a=>a.status==='注意').length);
+  if (alertsSummary[2]) alertsSummary[2].querySelector('.text-2xl').textContent = String(alertsData.filter(a=>a.status==='把握').length);
+  const aiAdopt = cards[3];
+  if (aiAdopt) aiAdopt.querySelector('.text-2xl').textContent = String(Math.min(28, Math.max(12, Math.round(alertCount * 0.45))));
+  const taskHeaders = document.querySelectorAll('#page-tasks h3 + span, #page-tasks .flex.items-center.gap-2 span.ml-auto');
+}
 // Init
 renderProperties(properties);
 renderAlerts();
 renderAICases();
 renderScenarios();
 renderTasks();
+refreshSummaryUI();
 
 // =================== DEMO MODE ===================
 const DEMO_STEPS = [
@@ -1281,8 +1435,11 @@ function demoStart() {
   demoStep = 0;
   demoExtraAlerts = [];
   originalTasksTodo = [...tasks.todo];
+  clearSpotlightTarget();
+  document.getElementById('demo-toasts').innerHTML = '';
   document.getElementById('demo-fab').classList.add('hidden');
   document.getElementById('demo-panel').classList.remove('hidden');
+  renderAlerts();
   renderDemoStepsBar();
   runDemoStep();
 }
@@ -1292,11 +1449,12 @@ function demoStop() {
   clearTimeout(demoAutoTimer);
   demoAutoPlay = false;
   demoExtraAlerts = [];
+  clearSpotlightTarget();
   document.getElementById('demo-panel').classList.add('hidden');
   document.getElementById('demo-fab').classList.remove('hidden');
   document.getElementById('spotlight-ring').classList.add('hidden');
   document.getElementById('demo-toasts').innerHTML = '';
-  document.getElementById('demo-auto-btn').textContent = '⏸ 自動再生';
+  document.getElementById('demo-auto-btn').textContent = '▶ 自動再生';
   renderAlerts();
   if (originalTasksTodo) { tasks.todo = [...originalTasksTodo]; renderTasks(); }
   showPage('dashboard', document.querySelectorAll('.sidebar-link')[0]);
@@ -1388,9 +1546,11 @@ function demoJump(i) {
 
 function setSpotlight(selector) {
   const ring = document.getElementById('spotlight-ring');
+  clearSpotlightTarget();
   if (!selector) { ring.classList.add('hidden'); return; }
   const el = document.querySelector(selector);
   if (!el) { ring.classList.add('hidden'); return; }
+  el.classList.add('demo-target-elevated');
   const r = el.getBoundingClientRect();
   const pad = 8;
   ring.style.top    = (r.top    - pad) + 'px';
@@ -1412,16 +1572,24 @@ function showDemoToast(t) {
   div.id = id;
   div.className = `pointer-events-auto ${colours[t.type]||colours.blue} text-white rounded-xl shadow-2xl border px-4 py-3 text-sm demo-toast`;
   div.innerHTML = `<div class="font-bold text-sm">${t.title}</div><div class="text-white/80 text-xs mt-0.5">${t.body}</div>`;
-  document.getElementById('demo-toasts').prepend(div);
+  const wrap = document.getElementById('demo-toasts');
+  wrap.prepend(div);
+  while (wrap.children.length > 4) wrap.lastElementChild.remove();
   setTimeout(() => {
     div.classList.add('removing');
     setTimeout(() => div.remove(), 300);
-  }, 3500);
+  }, 3200);
 }
 
 function renderDemoAlerts() {
   const badge = { 緊急:'badge-red', 注意:'badge-yellow', 把握:'badge-blue' };
-  const all = [...demoExtraAlerts];
+  const seen = new Set();
+  const all = [...demoExtraAlerts, ...alertsData].filter(a => {
+    const key = `${a.prop}-${a.type}-${a.days}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b) => a.days - b.days).slice(0, 24);
   document.getElementById('alerts-table').innerHTML = all.map((a, i) => `
     <tr class="hover:bg-gray-50 alert-new">
       <td class="py-3"><div class="w-2 h-2 rounded-full ${a.status==='緊急'?'bg-red-500':a.status==='注意'?'bg-amber-400':'bg-blue-400'}"></div></td>
@@ -1433,7 +1601,6 @@ function renderDemoAlerts() {
       <td class="py-3"><span class="${badge[a.status]||'badge-blue'}">${a.status}</span></td>
       <td class="py-3"><button class="text-xs text-primary-600 hover:underline font-medium">AI提案 →</button></td>
     </tr>`).join('');
-  // Update badge count
   const cnt = document.getElementById('alert-badge');
   if (cnt) cnt.textContent = all.filter(a=>a.status==='緊急').length;
 }
@@ -1450,6 +1617,8 @@ function addDemoTasks() {
   tasks.todo.unshift(...toAdd);
   renderTasks();
 }
+
+</script>
 
 </body>
 </html>

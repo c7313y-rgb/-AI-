@@ -1,158 +1,124 @@
-# 不動産 AI エージェント — 商業施設 PM 向け意思決定レイヤー
+# 不動産 AI エージェント
 
-> Edutex Co., Ltd. が開発した、テナント中途解約・契約満了・賃料改定の損失局面を  
-> 後継誘致・更新・売却の収益機会へ変えるAI意思決定Webアプリです。
+商業施設PM向けの静的Webデモです。`index.html` 単体で動作し、GitHub Pages でそのまま公開できます。
 
-![Demo](https://img.shields.io/badge/demo-GitHub%20Pages-blue?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+## 同梱ファイル
 
----
+- `index.html` : アプリ本体
+- `.nojekyll` : GitHub Pages の Jekyll 処理を無効化
+- `.github/workflows/deploy-pages.yml` : GitHub Actions で自動公開する設定
+- `README.md` : 公開手順
 
-## 機能一覧
+## ローカル確認
 
-| 画面 | 説明 |
-|------|------|
-| ダッシュボード | KPI・全国物件マップ・緊急アラート・PoC達成指標 |
-| 物件管理 | 130施設をカード表示、タイプ別フィルター |
-| アラート | 3段階（緊急/注意/把握）の一覧と詳細モーダル |
-| AI エージェント | 案件選択→AI自動分析→チャット形式で提案生成 |
-| シナリオ比較 | 後継誘致/更新・更地返還/売却の3案をスコア付き比較 |
-| タスク管理 | カンバン形式（未着手/進行中/完了） |
-| 効果分析 | ROI試算・月次空室率グラフ・施設タイプ別効果表 |
-| **デモモード** | **5件同時解約シナリオをステップ再生** |
-
----
-
-## GitHub Pages への公開手順
-
-### 方法 A — GitHub Web UI（最短 3 分）
-
-1. **リポジトリを作成**  
-   GitHub で `New repository` → 任意の名前（例: `fudosan-ai-agent`）→ **Public** → `Create repository`
-
-2. **ファイルをアップロード**  
-   `Add file` → `Upload files` から以下をドラッグ＆ドロップ：
-   - `index.html`
-   - `.nojekyll`
-
-3. **GitHub Pages を有効化**  
-   `Settings` → `Pages` → `Source: Deploy from a branch` → `Branch: main / (root)` → `Save`
-
-4. **公開URLを確認**  
-   数分後に `https://<ユーザー名>.github.io/<リポジトリ名>/` でアクセス可能になります。
-
----
-
-### 方法 B — Git CLI（推奨）
+### そのまま開く
 
 ```bash
-# 1. このディレクトリで Git 初期化
-cd /path/to/myproject2
-git init
-git add index.html .nojekyll README.md
-
-# 2. 初回コミット
-git commit -m "feat: 不動産AIエージェント初回リリース"
-
-# 3. GitHub にリポジトリを作成（gh CLI を使う場合）
-gh repo create fudosan-ai-agent --public --source=. --remote=origin --push
-
-# gh CLI がない場合は GitHub でリポジトリ作成後:
-# git remote add origin https://github.com/<ユーザー名>/fudosan-ai-agent.git
-# git branch -M main
-# git push -u origin main
-
-# 4. GitHub Pages を有効化
-gh api repos/<ユーザー名>/fudosan-ai-agent/pages \
-  --method POST \
-  -f build_type=legacy \
-  -f source.branch=main \
-  -f source.path=/
-```
-
-> **確認コマンド**（公開URLが表示されます）
-> ```bash
-> gh api repos/<ユーザー名>/fudosan-ai-agent/pages --jq '.html_url'
-> ```
-
----
-
-### 方法 C — GitHub Actions（CI/CD）
-
-`.github/workflows/deploy.yml` を作成して自動デプロイ：
-
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
-```
-
-> `Settings` → `Pages` → `Source: GitHub Actions` に変更してから push してください。
-
----
-
-## ローカルで動かす
-
-外部依存なしで動作します。`index.html` をブラウザで直接開くだけです。
-
-```bash
-# macOS
 open index.html
+```
 
-# Windows
-start index.html
+### 簡易サーバーで開く
 
-# Python の簡易サーバー（ポート 8000）
+```bash
 python3 -m http.server 8000
-# → http://localhost:8000 でアクセス
+```
+
+ブラウザで `http://localhost:8000` を開いて確認してください。
+
+---
+
+## GitHub Pages 公開手順
+
+GitHub Pages は大きく2通りあります。
+
+- **最短で公開したい** → ブランチ公開
+- **更新のたびに自動デプロイしたい** → GitHub Actions 公開
+
+このリポジトリには両方対応できるようにしてあります。
+
+---
+
+## 方法A: いちばん簡単な公開方法（Deploy from a branch）
+
+1. GitHub で新しいリポジトリを作成します。
+2. このフォルダの中身をそのままアップロードします。
+3. GitHub の対象リポジトリで **Settings** → **Pages** を開きます。
+4. **Build and deployment** の **Source** で **Deploy from a branch** を選びます。
+5. **Branch** で `main`、フォルダは `/ (root)` を選びます。
+6. 保存後、数分で公開されます。
+
+公開URLの例:
+
+```text
+https://<GitHubユーザー名>.github.io/<リポジトリ名>/
+```
+
+### この方法で使うファイル
+
+- `index.html`
+- `.nojekyll`
+- `README.md`
+
+`.github/workflows/deploy-pages.yml` は残していても問題ありませんが、使わないなら削除しても構いません。
+
+---
+
+## 方法B: 自動公開する方法（GitHub Actions）
+
+このフォルダには GitHub Pages 用の workflow が入っています。
+`main` に push すると自動で Pages にデプロイされます。
+
+### 手順
+
+1. GitHub で新しいリポジトリを作成します。
+2. このフォルダの中身をそのまま push します。
+3. GitHub の対象リポジトリで **Settings** → **Pages** を開きます。
+4. **Build and deployment** の **Source** で **GitHub Actions** を選びます。
+5. `main` に push すると自動公開されます。
+
+### 例: Git コマンド
+
+```bash
+git init
+git add .
+git commit -m "Prepare app for GitHub Pages"
+git branch -M main
+git remote add origin https://github.com/<GitHubユーザー名>/<リポジトリ名>.git
+git push -u origin main
 ```
 
 ---
 
-## 外部依存（CDN）
+## 公開後に確認すること
 
-| ライブラリ | 用途 | URL |
-|-----------|------|-----|
-| Tailwind CSS Play CDN | スタイリング | `https://cdn.tailwindcss.com` |
-| Google Fonts (Noto Sans JP) | 日本語フォント | `https://fonts.googleapis.com` |
-| Unsplash | 物件イメージ | `https://images.unsplash.com` |
-| DiceBear | アバター生成 | `https://api.dicebear.com` |
-
-> すべて無料・公開APIです。オフライン環境で動かす場合は各リソースをローカルに配置してください。
+- 画像が表示されるか
+- デモモードが動くか
+- 画面遷移時にエラーが出ないか
+- モバイル幅でもレイアウト崩れが大きくないか
 
 ---
 
-## 技術スタック
+## 更新方法
 
-- **フロントエンド**: Vanilla HTML / CSS / JavaScript（フレームワーク不使用）
-- **スタイリング**: Tailwind CSS v3 Play CDN
-- **デプロイ**: GitHub Pages（静的ホスティング）
-- **バックエンド**: なし（フルクライアントサイド）
+### ブランチ公開の場合
+
+`index.html` を更新して `main` に push すると再公開されます。
+
+### GitHub Actions の場合
+
+`main` に push するだけで workflow が走って再公開されます。
 
 ---
 
-## ライセンス
+## 注意点
 
-MIT License — © 2026 Edutex Co., Ltd.
+- このアプリは外部CDNと外部画像を利用しています。
+- ネットワーク制限が強い環境では一部表示が遅いことがあります。
+- GitHub Pages は静的ホスティングなので、サーバーサイド処理は使っていません。
+
+---
+
+## 推奨運用
+
+実務上は **GitHub Actions 方式** を推奨します。
+理由は、更新のたびに公開手順を意識せずに済み、運用事故が少ないためです。
